@@ -270,7 +270,7 @@ class Websocket
         }
 
         // dispatch request to pipeline if middleware are set
-        if ($isConnect && count($this->middleware)) {
+        if ($isConnect && count($this->startConnectMiddleware)) {
             $data = $this->setRequestThroughStartConnectMiddleware($data);
         }
 
