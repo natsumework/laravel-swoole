@@ -58,6 +58,13 @@ class Websocket
     protected $middleware = [];
 
     /**
+     * Middleware before connection established
+     *
+     * @var array
+     */
+    protected $startConnectMiddleware = [];
+
+    /**
      * Pipeline instance.
      *
      * @var \Illuminate\Contracts\Pipeline\Pipeline
@@ -88,6 +95,7 @@ class Websocket
     {
         $this->room = $room;
         $this->setPipeline($pipeline);
+        $this->setStartConnectMiddleware();
         $this->setDefaultMiddleware();
     }
 
@@ -113,7 +121,7 @@ class Websocket
         $values = is_string($values) || is_integer($values) ? func_get_args() : $values;
 
         foreach ($values as $value) {
-            if (! in_array($value, $this->to)) {
+            if (!in_array($value, $this->to)) {
                 $this->to[] = $value;
             }
         }
@@ -164,7 +172,7 @@ class Websocket
     public function emit(string $event, $data): bool
     {
         $fds = $this->getFds();
-        $assigned = ! empty($this->to);
+        $assigned = !empty($this->to);
 
         // if no fds are found, but rooms are assigned
         // that means trying to emit to a non-existing room
@@ -175,12 +183,12 @@ class Websocket
         }
 
         $payload = [
-            'sender'    => $this->sender,
-            'fds'       => $fds,
+            'sender' => $this->sender,
+            'fds' => $fds,
             'broadcast' => $this->isBroadcast,
-            'assigned'  => $assigned,
-            'event'     => $event,
-            'message'   => $data,
+            'assigned' => $assigned,
+            'event' => $event,
+            'message' => $data,
         ];
 
         $result = true;
@@ -223,7 +231,7 @@ class Websocket
      */
     public function on(string $event, $callback)
     {
-        if (! is_string($callback) && ! is_callable($callback)) {
+        if (!is_string($callback) && !is_callable($callback)) {
             throw new InvalidArgumentException(
                 'Invalid websocket callback. Must be a string or callable.'
             );
@@ -247,6 +255,29 @@ class Websocket
     }
 
     /**
+     * onStartConnect
+     *
+     * @param string
+     * @param mixed
+     * @return \Illuminate\Http\Request
+     */
+    public function onStartConnect($data)
+    {
+        $isConnect = false;
+
+        if (!$this->eventExists('connect')) {
+            $isConnect = true;
+        }
+
+        // dispatch request to pipeline if middleware are set
+        if ($isConnect && count($this->middleware)) {
+            $data = $this->setRequestThroughStartConnectMiddleware($data);
+        }
+
+        return $data;
+    }
+
+    /**
      * Execute callback function by its event name.
      *
      * @param string
@@ -256,7 +287,7 @@ class Websocket
      */
     public function call(string $event, $data = null)
     {
-        if (! $this->eventExists($event)) {
+        if (!$this->eventExists($event)) {
             return null;
         }
 
@@ -399,6 +430,14 @@ class Websocket
     }
 
     /**
+     * Set start connect middleware.
+     */
+    protected function setStartConnectMiddleware()
+    {
+        $this->startConnectMiddleware = Config::get('swoole_websocket.start_middleware', []);
+    }
+
+    /**
      * Set container to pipeline.
      *
      * @param \Illuminate\Contracts\Container\Container $container
@@ -444,7 +483,7 @@ class Websocket
     /**
      * Set the given request through the middleware.
      *
-     * @param  \Illuminate\Http\Request $request
+     * @param \Illuminate\Http\Request $request
      *
      * @return \Illuminate\Http\Request
      */
@@ -453,6 +492,23 @@ class Websocket
         return $this->pipeline
             ->send($request)
             ->through($this->middleware)
+            ->then(function ($request) {
+                return $request;
+            });
+    }
+
+    /**
+     * Set the given request through the start connect middleware.
+     *
+     * @param \Illuminate\Http\Request $request
+     *
+     * @return \Illuminate\Http\Request
+     */
+    protected function setRequestThroughStartConnectMiddleware($request)
+    {
+        return $this->pipeline
+            ->send($request)
+            ->through($this->startConnectMiddleware)
             ->then(function ($request) {
                 return $request;
             });

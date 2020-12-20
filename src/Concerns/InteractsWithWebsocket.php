@@ -88,11 +88,13 @@ trait InteractsWithWebsocket
             // enable sandbox
             $sandbox->enable();
             // call customized handshake handler
-            if ($response && ! $this->app->make($handshakeHandler)->handle($swooleRequest, $response)) {
+            if ($response && !$this->app->make($handshakeHandler)->handle($swooleRequest, $response)) {
                 return;
             }
+
+            $illuminateRequest = $websocket->onStartConnect($illuminateRequest);
             // check if socket.io connection established
-            if (! $this->websocketHandler->onOpen($swooleRequest->fd, $illuminateRequest)) {
+            if (!$this->websocketHandler->onOpen($swooleRequest->fd, $illuminateRequest)) {
                 return;
             }
             // trigger 'connect' websocket event
@@ -156,7 +158,7 @@ trait InteractsWithWebsocket
      */
     public function onClose($server, $fd, $reactorId)
     {
-        if (! $this->isServerWebsocket($fd) || ! $server instanceof WebsocketServer) {
+        if (!$this->isServerWebsocket($fd) || !$server instanceof WebsocketServer) {
             return;
         }
 
@@ -186,7 +188,7 @@ trait InteractsWithWebsocket
      */
     protected function isWebsocketPushPacket($packet)
     {
-        if (! is_array($packet)) {
+        if (!is_array($packet)) {
             return false;
         }
 
@@ -241,7 +243,7 @@ trait InteractsWithWebsocket
         $config = $this->container->make('config');
         $parser = $config->get('swoole_websocket.parser');
 
-        if (! $this->isServerWebsocket = $config->get('swoole_http.websocket.enabled')) {
+        if (!$this->isServerWebsocket = $config->get('swoole_http.websocket.enabled')) {
             return;
         }
 
@@ -279,7 +281,7 @@ trait InteractsWithWebsocket
     {
         $handlerClass = $this->container->make('config')->get('swoole_websocket.handler');
 
-        if (! $handlerClass) {
+        if (!$handlerClass) {
             throw new WebsocketNotSetInConfigException;
         }
 
@@ -367,7 +369,7 @@ trait InteractsWithWebsocket
         $routePath = $this->container->make('config')
             ->get('swoole_websocket.route_file');
 
-        if (! file_exists($routePath)) {
+        if (!file_exists($routePath)) {
             $routePath = __DIR__ . '/../../routes/websocket.php';
         }
 
@@ -383,7 +385,7 @@ trait InteractsWithWebsocket
      */
     public function isWebsocketPushPayload($payload): bool
     {
-        if (! is_array($payload)) {
+        if (!is_array($payload)) {
             return false;
         }
 
