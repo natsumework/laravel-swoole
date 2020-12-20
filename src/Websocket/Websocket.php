@@ -263,14 +263,8 @@ class Websocket
      */
     public function onStartConnect($data)
     {
-        $isConnect = false;
-
-        if (!$this->eventExists('connect')) {
-            $isConnect = true;
-        }
-
         // dispatch request to pipeline if middleware are set
-        if ($isConnect && count($this->startConnectMiddleware)) {
+        if (count($this->startConnectMiddleware)) {
             $data = $this->setRequestThroughStartConnectMiddleware($data);
         }
 
