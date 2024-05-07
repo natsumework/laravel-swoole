@@ -11,17 +11,17 @@ use SwooleTW\Http\Coroutine\Context;
 
 class TestCase extends BaseTestCase
 {
-    public function tearDown()
+    public function tearDown(): void
     {
         $this->addToAssertionCount(
             m::getContainer()->mockery_getExpectationCount()
         );
 
         Context::clear();
+        Mock::disableAll();
         Facade::clearResolvedInstances();
         parent::tearDown();
         m::close();
-        Mock::disableAll();
     }
 
     protected function mockMethod($name, \Closure $function, $namespace = null)

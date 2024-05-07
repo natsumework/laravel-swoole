@@ -24,6 +24,7 @@ use Symfony\Component\Console\Output\ConsoleOutput;
 use SwooleTW\Http\Concerns\InteractsWithSwooleQueue;
 use SwooleTW\Http\Concerns\InteractsWithSwooleTable;
 use Symfony\Component\ErrorHandler\Error\FatalError;
+use Laravel\Lumen\Http\Request as LumenRequest;
 
 /**
  * Class Manager
@@ -215,6 +216,10 @@ class Manager
             // transform swoole request to illuminate request
             $illuminateRequest = Request::make($swooleRequest)->toIlluminate();
 
+            if (!$sandbox->isLaravel()) { // is lumen app
+                $illuminateRequest = LumenRequest::createFromBase($illuminateRequest);
+            }
+
             // set current request to sandbox
             $sandbox->setRequest($illuminateRequest);
 
@@ -225,7 +230,7 @@ class Manager
             $illuminateResponse = $sandbox->run($illuminateRequest);
 
             // send response
-            Response::make($illuminateResponse, $swooleResponse)->send();
+            Response::make($illuminateResponse, $swooleResponse, $swooleRequest)->send();
         } catch (Throwable $e) {
             try {
                 $exceptionResponse = $this->app
@@ -234,7 +239,7 @@ class Manager
                         $illuminateRequest,
                         $this->normalizeException($e)
                     );
-                Response::make($exceptionResponse, $swooleResponse)->send();
+                Response::make($exceptionResponse, $swooleResponse, $swooleRequest)->send();
             } catch (Throwable $e) {
                 $this->logServerError($e);
             }
@@ -260,11 +265,19 @@ class Manager
      *
      * @param mixed $server
      * @param string|\Swoole\Server\Task $taskId or $task
-     * @param string $srcWorkerId
-     * @param mixed $data
+     * @param string|null $srcWorkerId
+     * @param mixed|null $data
      */
-    public function onTask($server, $taskId, $srcWorkerId, $data)
+    public function onTask($server, $task, $srcWorkerId = null, $data = null)
     {
+        if ($task instanceof Task) {
+            $data = $task->data;
+            $srcWorkerId = $task->worker_id;
+            $taskId = $task->id;
+        } else {
+            $taskId = $task;
+        }
+
         $this->container->make('events')->dispatch('swoole.task', func_get_args());
 
         try {
